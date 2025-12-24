@@ -13,6 +13,7 @@ export default function Reports() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [downloadingType, setDownloadingType] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -29,7 +30,7 @@ export default function Reports() {
     fetchProjects();
   }, []);
 
-  const handleDownload = (reportType: string) => {
+  const handleDownload = async (reportType: string) => {
     if (!selectedProject) {
       toast({
         title: 'Select a Project',
@@ -38,12 +39,55 @@ export default function Reports() {
       });
       return;
     }
+
+    setDownloadingType(reportType);
     toast({
-      title: 'Generating Report',
-      description: `Downloading ${reportType}...`,
+      title: 'Preparing…',
+      description: 'Generating Excel. Please wait.',
     });
-    // API call would happen here
-    console.log(`[REPORT API] Generating ${reportType} for project ${selectedProject}`);
+
+    try {
+      let result: { blob: Blob; filename?: string };
+      if (reportType === 'contributions') {
+        result = await api.getContributionsReport(selectedProject);
+      } else if (reportType === 'expenses') {
+        result = await api.getExpensesReport(selectedProject);
+      } else if (reportType === 'flats') {
+        result = await api.getInstallmentsReport(selectedProject);
+      } else {
+        result = await api.getProjectReport(selectedProject);
+      }
+
+      const blob = result.blob;
+      const filename = result.filename || `${reportType}-report.xlsx`;
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+
+      toast({
+        title: 'Downloaded',
+        description: 'Excel report downloaded successfully.',
+      });
+    } catch (error) {
+      console.error('Report download error:', error);
+      toast({
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Failed to download report. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingType(null);
+    }
   };
 
   const reports = [
@@ -124,8 +168,9 @@ export default function Reports() {
                   variant="outline" 
                   className="w-full"
                   onClick={() => handleDownload(report.type)}
+                  disabled={downloadingType === report.type}
                 >
-                  Download Excel
+                  {downloadingType === report.type ? 'Preparing…' : 'Download Excel'}
                 </Button>
               </CardContent>
             </Card>

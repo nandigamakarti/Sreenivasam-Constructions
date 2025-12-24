@@ -40,7 +40,7 @@ export default function Login() {
       } else {
         toast({
           title: 'Login failed',
-          description: 'Invalid email or password. Use password: admin123',
+          description: 'Invalid email or password',
           variant: 'destructive',
         });
       }
@@ -63,7 +63,7 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
             <HardHat className="h-9 w-9 text-primary-foreground" />
           </div>
-          <h1 className="font-display text-3xl font-bold text-foreground">Construction Financial Tracker</h1>
+          <h1 className="font-display text-3xl font-bold text-foreground">Sree Nivasam Construction Projects</h1>
           <p className="text-muted-foreground mt-2">Admin Portal</p>
         </div>
 
@@ -108,9 +108,6 @@ export default function Login() {
                 )}
               </Button>
             </form>
-            <p className="text-xs text-muted-foreground text-center mt-4">
-              Demo: Use any email with password "admin123"
-            </p>
           </CardContent>
         </Card>
       </div>

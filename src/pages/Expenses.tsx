@@ -45,7 +45,7 @@ export default function Expenses() {
     { key: 'amount' as const, header: 'Amount', render: (e: Expense & { project_name: string }) => formatCurrency(e.amount) },
     { key: 'date' as const, header: 'Date', render: (e: Expense & { project_name: string }) => new Date(e.date).toLocaleDateString('en-IN') },
     { key: 'paid_by' as const, header: 'Paid By' },
-    { key: 'vendor' as const, header: 'Vendor' },
+    { key: 'vendor_name' as const, header: 'Vendor' },
   ];
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);

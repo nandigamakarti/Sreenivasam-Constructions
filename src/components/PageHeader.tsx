@@ -11,9 +11,15 @@ interface PageHeaderProps {
     icon?: LucideIcon;
     onClick: () => void;
   };
+  actions?: {
+    label: string;
+    icon?: LucideIcon;
+    onClick: () => void;
+    variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'link';
+  }[];
 }
 
-export function PageHeader({ title, subtitle, backPath, action }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, backPath, action, actions }: PageHeaderProps) {
   const navigate = useNavigate();
 
   return (
@@ -37,12 +43,21 @@ export function PageHeader({ title, subtitle, backPath, action }: PageHeaderProp
             )}
           </div>
         </div>
-        {action && (
+        {Array.isArray(actions) && actions.length > 0 ? (
+          <div className="flex flex-col sm:flex-row gap-2 self-start sm:self-auto">
+            {actions.map((a) => (
+              <Button key={a.label} onClick={a.onClick} variant={a.variant || 'default'}>
+                {a.icon && <a.icon className="h-4 w-4 mr-2" />}
+                {a.label}
+              </Button>
+            ))}
+          </div>
+        ) : action ? (
           <Button onClick={action.onClick} className="self-start sm:self-auto">
             {action.icon && <action.icon className="h-4 w-4 mr-2" />}
             {action.label}
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );
