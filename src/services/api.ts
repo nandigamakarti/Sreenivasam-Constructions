@@ -129,22 +129,22 @@ async function apiFetch(url: string, options: RequestInit = {}, retries = 2): Pr
 export const api = {
   // Projects
   async getProjects(): Promise<Project[]> {
-    return apiFetch('/projects');
+    return apiFetch('/api/projects');
   },
 
   async getProject(id: string): Promise<Project> {
-    return apiFetch(`/projects/${id}`);
+    return apiFetch(`/api/projects/${id}`);
   },
 
   async updateProject(id: string, data: Partial<Project>): Promise<Project> {
-    return apiFetch(`/projects/${id}`, {
+    return apiFetch(`/api/projects/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   async createProject(project: Omit<Project, 'id' | 'created_at' | 'total_contributions' | 'total_expenses' | 'handler_reimbursement_due'>): Promise<Project> {
-    return apiFetch('/projects', {
+    return apiFetch('/api/projects', {
       method: 'POST',
       body: JSON.stringify(project),
     });
