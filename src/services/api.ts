@@ -277,6 +277,19 @@ export const api = {
     });
   },
 
+  async updateInstallment(id: string, data: Partial<Installment>): Promise<Installment> {
+    return apiFetch(`/flat/installment/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteInstallment(id: string): Promise<{ ok: boolean }> {
+    return apiFetch(`/flat/installment/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
   // Dashboard Stats
   async getDashboardStats(): Promise<DashboardStats> {
     return apiFetch('/api/dashboard-stats');
@@ -287,7 +300,7 @@ export const api = {
   },
 
   async getProjectContractors(projectId: string): Promise<ProjectContractor[]> {
-    return apiFetch(`/api/project/${projectId}/contractors`);
+    return apiFetch(`/api/projects/${projectId}/contracts`);
   },
 
   async createContractor(contractor: { project_id: string; contractor_name: string; type: 'fixed' | 'per_sqft'; fixed_amount?: number; rate_per_sqft?: number }): Promise<ProjectContractor> {

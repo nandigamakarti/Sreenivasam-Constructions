@@ -20,6 +20,9 @@ class EmailService {
         port: config.smtp.port,
         secure: config.smtp.secure,
         auth: { user: config.smtp.user, pass: config.smtp.pass },
+        connectionTimeout: 7000,
+        greetingTimeout: 7000,
+        socketTimeout: 7000,
       });
       logger.info('Email provider: SMTP');
     } else {
@@ -136,34 +139,56 @@ class EmailService {
   }
 
   async sendEmail({ to, subject, html }) {
-    if (this.provider === 'sendgrid') {
-      await sgMail.send({ to, from: config.emailFrom, subject, html });
-      return;
+    try {
+      if (this.provider === 'sendgrid') {
+        await sgMail.send({ to, from: config.emailFrom, subject, html });
+        return { ok: true };
+      }
+      if (this.provider === 'smtp') {
+        await this.transporter.sendMail({
+          to: Array.isArray(to) ? to.join(',') : to,
+          from: config.emailFrom,
+          subject,
+          html,
+        });
+        return { ok: true };
+      }
+      logger.warn('Email provider not configured. Skipping send.');
+      return { ok: false, skipped: true };
+    } catch (err) {
+      logger.error({ err }, 'Email send failed (non-fatal)');
+      return { ok: false, error: err instanceof Error ? err.message : 'Email send failed' };
     }
-    if (this.provider === 'smtp') {
-      await this.transporter.sendMail({ to: Array.isArray(to) ? to.join(',') : to, from: config.emailFrom, subject, html });
-      return;
-    }
-    logger.warn('Email provider not configured. Skipping send.');
   }
 
   async sendTransactionEmail(payload) {
-    const recipients = await this.getPartnerEmails(payload.projectId);
-    if (!recipients.length) {
-      logger.warn({ projectId: payload.projectId }, 'No partner emails found for project, email skipped');
-      return;
-    }
+    try {
+      if (this.provider === 'none') return;
 
-    const html = this.buildTransactionHtml(payload);
-    const subject = `[SreeNivasam Constructions] ${payload.projectName} - ${payload.transactionType}`;
-    await this.sendEmail({ to: recipients, subject, html });
+      const recipients = await this.getPartnerEmails(payload.projectId);
+      if (!recipients.length) {
+        logger.warn({ projectId: payload.projectId }, 'No partner emails found for project, email skipped');
+        return;
+      }
+
+      const html = this.buildTransactionHtml(payload);
+      const subject = `[SreeNivasam Constructions] ${payload.projectName} - ${payload.transactionType}`;
+      await this.sendEmail({ to: recipients, subject, html });
+    } catch (err) {
+      logger.error({ err }, 'sendTransactionEmail failed (non-fatal)');
+    }
   }
 
   async sendWeeklySummaryEmail({ projectName, recipients, summary }) {
-    if (!recipients.length) return;
-    const html = this.buildWeeklySummaryHtml({ projectName, summary });
-    const subject = `[Sreenivasam Construction Projects] Weekly summary - ${projectName}`;
-    await this.sendEmail({ to: recipients, subject, html });
+    try {
+      if (this.provider === 'none') return;
+      if (!recipients.length) return;
+      const html = this.buildWeeklySummaryHtml({ projectName, summary });
+      const subject = `[Sreenivasam Construction Projects] Weekly summary - ${projectName}`;
+      await this.sendEmail({ to: recipients, subject, html });
+    } catch (err) {
+      logger.error({ err }, 'sendWeeklySummaryEmail failed (non-fatal)');
+    }
   }
 }
 

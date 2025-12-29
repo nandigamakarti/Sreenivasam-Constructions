@@ -25,6 +25,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientDistPath = path.resolve(__dirname, '..', '..', 'dist');
 
+function fireAndForget(promise, label) {
+  Promise.resolve(promise).catch((err) => logger.error({ err }, label || 'Background task failed'));
+}
+
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -1052,24 +1056,27 @@ app.post('/contributions', authenticate, async (req, res) => {
     const summary = await computeProjectSummary(project_id);
     const balance = await calculateBalance(project_id);
     await logAudit({ transactionId: data.id, projectId: project_id, userId: req.user?.id || null, oldValues: null, newValues: data });
-    await emailService.sendTransactionEmail({
-      projectId: project_id,
-      projectName: project.name,
-      transactionType: 'Partner contribution added',
-      amount,
-      date,
-      actorName: req.user.email || req.user.id,
-      contributionType: normalizedType,
-      vendorName: normalizedType === 'direct_expense' ? vendor_name : null,
-      purpose: normalizedType === 'direct_expense' ? purpose : null,
-      proof: normalizedType === 'direct_expense' ? proof : null,
-      cashBalance: summary.cash_balance,
-      totalContribution: summary.total_contribution,
-      contributorShare: summary.contributor_share,
-      updatedBalance: balance.balance,
-      projectLink: `${config.projectAppUrl}/projects/${project_id}`,
-      notes,
-    });
+    fireAndForget(
+      emailService.sendTransactionEmail({
+        projectId: project_id,
+        projectName: project.name,
+        transactionType: 'Partner contribution added',
+        amount,
+        date,
+        actorName: req.user.email || req.user.id,
+        contributionType: normalizedType,
+        vendorName: normalizedType === 'direct_expense' ? vendor_name : null,
+        purpose: normalizedType === 'direct_expense' ? purpose : null,
+        proof: normalizedType === 'direct_expense' ? proof : null,
+        cashBalance: summary.cash_balance,
+        totalContribution: summary.total_contribution,
+        contributorShare: summary.contributor_share,
+        updatedBalance: balance.balance,
+        projectLink: `${config.projectAppUrl}/projects/${project_id}`,
+        notes,
+      }),
+      'Contribution email failed',
+    );
 
     return res.json(data);
   } catch (err) {
@@ -1153,24 +1160,27 @@ app.put('/contributions/:id', authenticate, async (req, res) => {
     const project = await fetchProject(existing.project_id);
     const summary = await computeProjectSummary(existing.project_id);
     await logAudit({ transactionId: id, projectId: existing.project_id, userId: req.user?.id || null, oldValues: existing, newValues: data });
-    await emailService.sendTransactionEmail({
-      projectId: existing.project_id,
-      projectName: project?.name || 'Project',
-      transactionType: 'Contribution updated',
-      amount: data.amount,
-      date: data.date,
-      actorName: req.user.email || req.user.id,
-      contributionType: (data.contribution_type || 'account_credit').toLowerCase(),
-      vendorName: (data.contribution_type || '').toLowerCase() === 'direct_expense' ? data.vendor_name : null,
-      purpose: (data.contribution_type || '').toLowerCase() === 'direct_expense' ? data.purpose : null,
-      proof: (data.contribution_type || '').toLowerCase() === 'direct_expense' ? data.proof : null,
-      cashBalance: summary.cash_balance,
-      totalContribution: summary.total_contribution,
-      contributorShare: summary.contributor_share,
-      updatedBalance: balance.balance,
-      projectLink: `${config.projectAppUrl}/projects/${existing.project_id}`,
-      notes: data.notes,
-    });
+    fireAndForget(
+      emailService.sendTransactionEmail({
+        projectId: existing.project_id,
+        projectName: project?.name || 'Project',
+        transactionType: 'Contribution updated',
+        amount: data.amount,
+        date: data.date,
+        actorName: req.user.email || req.user.id,
+        contributionType: (data.contribution_type || 'account_credit').toLowerCase(),
+        vendorName: (data.contribution_type || '').toLowerCase() === 'direct_expense' ? data.vendor_name : null,
+        purpose: (data.contribution_type || '').toLowerCase() === 'direct_expense' ? data.purpose : null,
+        proof: (data.contribution_type || '').toLowerCase() === 'direct_expense' ? data.proof : null,
+        cashBalance: summary.cash_balance,
+        totalContribution: summary.total_contribution,
+        contributorShare: summary.contributor_share,
+        updatedBalance: balance.balance,
+        projectLink: `${config.projectAppUrl}/projects/${existing.project_id}`,
+        notes: data.notes,
+      }),
+      'Contribution update email failed',
+    );
 
     return res.json(data);
   } catch (err) {
@@ -1228,7 +1238,7 @@ app.post('/expenses', authenticate, async (req, res) => {
 
     const summary = await computeProjectSummary(project_id);
     await logAudit({ transactionId: data.id, projectId: project_id, userId: req.user?.id || null, oldValues: null, newValues: data });
-    await emailService.sendTransactionEmail({
+    fireAndForget(emailService.sendTransactionEmail({
       projectId: project_id,
       projectName: project.name,
       transactionType: 'Expense added',
@@ -1241,7 +1251,7 @@ app.post('/expenses', authenticate, async (req, res) => {
       contributorShare: summary.contributor_share,
       projectLink: `${config.projectAppUrl}/projects/${project_id}`,
       notes,
-    });
+    }), 'Expense email failed');
 
     return res.json(data);
   } catch (err) {
@@ -1253,9 +1263,15 @@ app.post('/expenses', authenticate, async (req, res) => {
 app.put('/expenses/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
-    const { data: existing, error: fetchError } = await supabaseAdmin.from('expenses').select('*').eq('id', id).single();
+
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('expenses')
+      .select('*')
+      .eq('id', id)
+      .single();
     if (fetchError || !existing) return res.status(404).json({ message: 'Expense not found' });
 
+    // Validate contractor link (optional)
     const nextContractorId = req.body?.contractor_id ?? existing.contractor_id ?? null;
     if (nextContractorId) {
       const contractor = await fetchContractor(nextContractorId);
@@ -1264,14 +1280,33 @@ app.put('/expenses/:id', authenticate, async (req, res) => {
       }
     }
 
-    const update = { ...req.body, contractor_id: nextContractorId || null, updated_by: req.user?.id || null, updated_at: new Date().toISOString() };
-    const { data, error } = await supabaseAdmin.from('expenses').update(update).eq('id', id).select().single();
+    const update = {
+      title: req.body?.title ?? existing.title,
+      category: req.body?.category ?? existing.category,
+      amount: req.body?.amount !== undefined ? toNumber(req.body.amount) : existing.amount,
+      date: req.body?.date ?? existing.date,
+      paid_by: req.body?.paid_by ?? existing.paid_by,
+      vendor_name: req.body?.vendor_name ?? existing.vendor_name,
+      notes: req.body?.notes ?? existing.notes,
+      contractor_id: nextContractorId,
+      updated_by: req.user?.id || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabaseAdmin
+      .from('expenses')
+      .update(update)
+      .eq('id', id)
+      .select()
+      .single();
     if (error) return res.status(400).json({ message: error.message });
 
-    const oldAmount = toNumber(existing.amount);
-    const newAmount = toNumber(data.amount);
+    // Adjust contractor paid totals based on delta
     const oldContractorId = existing.contractor_id || null;
     const newContractorId = data.contractor_id || null;
+    const oldAmount = toNumber(existing.amount);
+    const newAmount = toNumber(data.amount);
+
     if (oldContractorId && oldContractorId !== newContractorId) {
       await applyContractorPaymentDelta({ contractorId: oldContractorId, deltaAmount: -oldAmount });
     }
@@ -1285,25 +1320,28 @@ app.put('/expenses/:id', authenticate, async (req, res) => {
     const project = await fetchProject(existing.project_id);
     const summary = await computeProjectSummary(existing.project_id);
     await logAudit({ transactionId: id, projectId: existing.project_id, userId: req.user?.id || null, oldValues: existing, newValues: data });
-    await emailService.sendTransactionEmail({
-      projectId: existing.project_id,
-      projectName: project?.name || 'Project',
-      transactionType: 'Expense updated',
-      transactionCategory: 'expense',
-      amount: data.amount,
-      date: data.date,
-      actorName: req.user.email || req.user.id,
-      cashBalance: summary.cash_balance,
-      totalContribution: summary.total_contribution,
-      contributorShare: summary.contributor_share,
-      projectLink: `${config.projectAppUrl}/projects/${existing.project_id}`,
-      notes: data.notes,
-    });
+    fireAndForget(
+      emailService.sendTransactionEmail({
+        projectId: existing.project_id,
+        projectName: project?.name || 'Project',
+        transactionType: 'Expense updated',
+        transactionCategory: 'expense',
+        amount: data.amount,
+        date: data.date,
+        actorName: req.user.email || req.user.id,
+        cashBalance: summary.cash_balance,
+        totalContribution: summary.total_contribution,
+        contributorShare: summary.contributor_share,
+        projectLink: `${config.projectAppUrl}/projects/${existing.project_id}`,
+        notes: data.notes,
+      }),
+      'Expense update email failed',
+    );
 
     return res.json(data);
   } catch (err) {
     logger.error({ err }, 'Failed to update expense');
-    return res.status(500).json({ message: 'Failed to update expense' });
+    return res.status(500).json({ message: err instanceof Error ? err.message : 'Failed to update expense' });
   }
 });
 
@@ -1339,6 +1377,33 @@ app.post('/flats', authenticate, async (req, res) => {
   } catch (err) {
     logger.error({ err }, 'Failed to create flat');
     return res.status(500).json({ message: 'Failed to create flat' });
+  }
+});
+
+app.put('/flats/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: existing, error: fetchError } = await supabaseAdmin.from('flats').select('*').eq('id', id).single();
+    if (fetchError || !existing) return res.status(404).json({ message: 'Flat not found' });
+
+    const nextStatus = req.body?.status !== undefined ? String(req.body.status).toLowerCase().trim() : existing.status;
+    if (nextStatus && !['available', 'booked', 'sold'].includes(nextStatus)) {
+      return res.status(400).json({ message: 'Invalid flat status. Allowed: available, booked, sold' });
+    }
+
+    const update = {
+      flat_no: req.body?.flat_no ?? existing.flat_no,
+      buyer_name: req.body?.buyer_name ?? existing.buyer_name,
+      total_cost: req.body?.total_cost !== undefined ? toNumber(req.body.total_cost) : existing.total_cost,
+      status: nextStatus,
+    };
+
+    const { data, error } = await supabaseAdmin.from('flats').update(update).eq('id', id).select().single();
+    if (error) return res.status(400).json({ message: error.message });
+    return res.json(data);
+  } catch (err) {
+    logger.error({ err }, 'Failed to update flat');
+    return res.status(500).json({ message: 'Failed to update flat' });
   }
 });
 
@@ -1403,7 +1468,7 @@ app.post('/flat/installment', authenticate, async (req, res) => {
 
     const summary = await computeProjectSummary(flat.project_id);
     await logAudit({ transactionId: data.id, projectId: flat.project_id, userId: req.user?.id || null, oldValues: null, newValues: data });
-    await emailService.sendTransactionEmail({
+    fireAndForget(emailService.sendTransactionEmail({
       projectId: flat.project_id,
       projectName: project?.name || 'Project',
       transactionType: 'Flat installment added',
@@ -1416,7 +1481,7 @@ app.post('/flat/installment', authenticate, async (req, res) => {
       contributorShare: summary.contributor_share,
       projectLink: `${config.projectAppUrl}/projects/${flat.project_id}`,
       notes,
-    });
+    }), 'Installment email failed');
 
     return res.json(data);
   } catch (err) {
@@ -1438,6 +1503,98 @@ app.get('/flat/installments/:flatId', authenticate, async (req, res) => {
   } catch (err) {
     logger.error({ err }, 'Failed to list installments');
     return res.status(500).json({ message: 'Failed to list installments' });
+  }
+});
+
+app.put('/flat/installment/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, date, mode, notes } = req.body || {};
+
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('flat_payments')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (existingError || !existing) return res.status(404).json({ message: 'Installment not found' });
+
+    const { data: flat, error: flatError } = await supabaseAdmin.from('flats').select('*').eq('id', existing.flat_id).single();
+    if (flatError || !flat) return res.status(404).json({ message: 'Flat not found' });
+    const project = await fetchProject(flat.project_id);
+
+    const patch = {
+      amount: amount !== undefined ? toNumber(amount) : existing.amount,
+      date: date !== undefined ? String(date) : existing.date,
+      mode: mode !== undefined ? String(mode) : existing.mode,
+      notes: notes !== undefined ? String(notes) : existing.notes,
+    };
+
+    const { data, error } = await supabaseAdmin.from('flat_payments').update(patch).eq('id', id).select().single();
+    if (error) return res.status(400).json({ message: error.message });
+
+    const summary = await computeProjectSummary(flat.project_id);
+    await logAudit({ transactionId: data.id, projectId: flat.project_id, userId: req.user?.id || null, oldValues: existing, newValues: data });
+    fireAndForget(emailService.sendTransactionEmail({
+      projectId: flat.project_id,
+      projectName: project?.name || 'Project',
+      transactionType: 'Flat installment updated',
+      transactionCategory: 'flat payment',
+      amount: patch.amount,
+      date: patch.date,
+      actorName: req.user.email || req.user.id,
+      cashBalance: summary.cash_balance,
+      totalContribution: summary.total_contribution,
+      contributorShare: summary.contributor_share,
+      projectLink: `${config.projectAppUrl}/projects/${flat.project_id}`,
+      notes: patch.notes,
+    }), 'Installment update email failed');
+
+    return res.json(data);
+  } catch (err) {
+    logger.error({ err }, 'Failed to update installment');
+    return res.status(500).json({ message: 'Failed to update installment' });
+  }
+});
+
+app.delete('/flat/installment/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('flat_payments')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (existingError || !existing) return res.status(404).json({ message: 'Installment not found' });
+
+    const { data: flat, error: flatError } = await supabaseAdmin.from('flats').select('*').eq('id', existing.flat_id).single();
+    if (flatError || !flat) return res.status(404).json({ message: 'Flat not found' });
+    const project = await fetchProject(flat.project_id);
+
+    const { error } = await supabaseAdmin.from('flat_payments').delete().eq('id', id);
+    if (error) return res.status(400).json({ message: error.message });
+
+    const summary = await computeProjectSummary(flat.project_id);
+    await logAudit({ transactionId: existing.id, projectId: flat.project_id, userId: req.user?.id || null, oldValues: existing, newValues: null });
+    fireAndForget(emailService.sendTransactionEmail({
+      projectId: flat.project_id,
+      projectName: project?.name || 'Project',
+      transactionType: 'Flat installment deleted',
+      transactionCategory: 'flat payment',
+      amount: existing.amount,
+      date: existing.date,
+      actorName: req.user.email || req.user.id,
+      cashBalance: summary.cash_balance,
+      totalContribution: summary.total_contribution,
+      contributorShare: summary.contributor_share,
+      projectLink: `${config.projectAppUrl}/projects/${flat.project_id}`,
+      notes: existing.notes,
+    }), 'Installment delete email failed');
+
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, 'Failed to delete installment');
+    return res.status(500).json({ message: 'Failed to delete installment' });
   }
 });
 

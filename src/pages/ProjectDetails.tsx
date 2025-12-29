@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { api } from '@/services/api';
-import { Project, Contribution, Expense, Flat, ProjectSummary, ProjectContractor } from '@/types';
+import { Project, Contribution, Expense, Flat, ProjectSummary, ProjectContractor, Installment } from '@/types';
 import { HandCoins, Receipt, Wallet, Building2, AlertCircle, Plus, Loader2, Edit, Trash2, ExternalLink, FileText, Image } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
@@ -42,6 +42,16 @@ export default function ProjectDetails() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [flats, setFlats] = useState<Flat[]>([]);
   const [contractors, setContractors] = useState<ProjectContractor[]>([]);
+  const [installmentsDialogOpen, setInstallmentsDialogOpen] = useState(false);
+  const [installmentsFlat, setInstallmentsFlat] = useState<Flat | null>(null);
+  const [installments, setInstallments] = useState<Installment[]>([]);
+  const [installmentForm, setInstallmentForm] = useState({
+    amount: '' as string,
+    date: new Date().toISOString().split('T')[0],
+    mode: 'bank_transfer' as Installment['mode'],
+    notes: '' as string,
+  });
+  const [editingInstallment, setEditingInstallment] = useState<Installment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [elevationDialogOpen, setElevationDialogOpen] = useState(false);
@@ -56,6 +66,7 @@ export default function ProjectDetails() {
   const [contractorDialog, setContractorDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingItem, setEditingItem] = useState<Contribution | Expense | null>(null);
+  const [editingFlat, setEditingFlat] = useState<Flat | null>(null);
   const [editingContractor, setEditingContractor] = useState<ProjectContractor | null>(null);
 
   const [selectedPartnerForReport, setSelectedPartnerForReport] = useState<string>('');
@@ -226,6 +237,102 @@ export default function ProjectDetails() {
     }
   };
 
+  const resetInstallmentForm = () => {
+    setInstallmentForm({
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+      mode: 'bank_transfer',
+      notes: '',
+    });
+    setEditingInstallment(null);
+  };
+
+  const openInstallments = async (flat: Flat) => {
+    setInstallmentsFlat(flat);
+    setInstallments([]);
+    resetInstallmentForm();
+    setInstallmentsDialogOpen(true);
+    try {
+      const data = await api.getInstallments(flat.id);
+      setInstallments(data || []);
+    } catch (e) {
+      console.error('Failed to load installments:', e);
+      toast({
+        title: 'Error',
+        description: e instanceof Error ? e.message : 'Failed to load installments',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const openEditInstallment = (i: Installment) => {
+    setEditingInstallment(i);
+    setInstallmentForm({
+      amount: String(i.amount ?? ''),
+      date: String(i.date || new Date().toISOString().split('T')[0]),
+      mode: (i.mode || 'bank_transfer') as Installment['mode'],
+      notes: String(i.notes || ''),
+    });
+  };
+
+  const handleSaveInstallment = async () => {
+    if (!installmentsFlat) return;
+    if (!installmentForm.amount) {
+      toast({ title: 'Error', description: 'Amount is required', variant: 'destructive' });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      if (editingInstallment) {
+        await api.updateInstallment(editingInstallment.id, {
+          amount: Number(installmentForm.amount),
+          date: installmentForm.date,
+          mode: installmentForm.mode,
+          notes: installmentForm.notes,
+        });
+        toast({ title: 'Updated', description: 'Installment updated' });
+      } else {
+        await api.createInstallment({
+          flat_id: installmentsFlat.id,
+          amount: Number(installmentForm.amount),
+          date: installmentForm.date,
+          mode: installmentForm.mode,
+          notes: installmentForm.notes,
+        } as any);
+        toast({ title: 'Added', description: 'Installment added' });
+      }
+
+      const data = await api.getInstallments(installmentsFlat.id);
+      setInstallments(data || []);
+      resetInstallmentForm();
+      fetchData();
+    } catch (e) {
+      console.error('Failed to save installment:', e);
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed to save installment', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteInstallment = async (i: Installment) => {
+    if (!installmentsFlat) return;
+    if (!window.confirm('Delete installment?')) return;
+    setIsSubmitting(true);
+    try {
+      await api.deleteInstallment(i.id);
+      toast({ title: 'Deleted', description: 'Installment deleted' });
+      const data = await api.getInstallments(installmentsFlat.id);
+      setInstallments(data || []);
+      resetInstallmentForm();
+      fetchData();
+    } catch (e) {
+      console.error('Failed to delete installment:', e);
+      toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed to delete installment', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     // Wait for auth to be ready before fetching data
     if (!authLoading && isAuthenticated && id) {
@@ -354,8 +461,12 @@ export default function ProjectDetails() {
       setContributionDialog(false);
       resetContributionForm();
       fetchData();
-    } catch {
-      toast({ title: 'Error', description: 'Operation failed', variant: 'destructive' });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Operation failed',
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -401,21 +512,47 @@ export default function ProjectDetails() {
     }
     setIsSubmitting(true);
     try {
-      await api.createFlat({
-        ...flatForm,
-        project_id: id!,
-        total_cost: Number(flatForm.total_cost),
-        paid: 0,
-      });
-      toast({ title: 'Success', description: 'Flat added' });
+      if (editingFlat) {
+        await api.updateFlat(editingFlat.id, {
+          flat_no: flatForm.flat_no,
+          buyer_name: flatForm.buyer_name,
+          total_cost: Number(flatForm.total_cost),
+          status: flatForm.status,
+        } as any);
+        toast({ title: 'Success', description: 'Flat updated' });
+      } else {
+        await api.createFlat({
+          ...flatForm,
+          project_id: id!,
+          total_cost: Number(flatForm.total_cost),
+          paid: 0,
+        });
+        toast({ title: 'Success', description: 'Flat added' });
+      }
       setFlatDialog(false);
+      setEditingFlat(null);
       setFlatForm({ flat_no: '', buyer_name: '', total_cost: '', status: 'available' });
       fetchData();
-    } catch {
-      toast({ title: 'Error', description: 'Operation failed', variant: 'destructive' });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Operation failed',
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const openEditFlat = (f: Flat) => {
+    setEditingFlat(f);
+    setFlatForm({
+      flat_no: f.flat_no,
+      buyer_name: f.buyer_name || '',
+      total_cost: String(f.total_cost ?? ''),
+      status: f.status,
+    });
+    setFlatDialog(true);
   };
 
   const resetContributionForm = () => {
@@ -648,11 +785,15 @@ export default function ProjectDetails() {
     { key: 'flat_no' as const, header: 'Flat No' },
     { key: 'buyer_name' as const, header: 'Buyer', render: (f: Flat) => f.buyer_name || '-' },
     { key: 'total_cost' as const, header: 'Total Cost', render: (f: Flat) => formatCurrency(f.total_cost) },
-    { key: 'paid' as const, header: 'Paid', render: (f: Flat) => formatCurrency(f.paid) },
+    {
+      key: 'paid' as const,
+      header: 'Paid',
+      render: (f: Flat) => formatCurrency((f as any).paid_amount ?? f.paid ?? 0),
+    },
     {
       key: 'pending' as const,
       header: 'Pending',
-      render: (f: Flat) => formatCurrency(toFiniteNumber(f.total_cost) - toFiniteNumber(f.paid)),
+      render: (f: Flat) => formatCurrency(toFiniteNumber(f.total_cost) - toFiniteNumber((f as any).paid_amount ?? f.paid ?? 0)),
     },
     {
       key: 'status' as const,
@@ -665,6 +806,20 @@ export default function ProjectDetails() {
         };
         return <Badge variant="outline" className={colors[f.status]}>{f.status}</Badge>;
       },
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (f: Flat) => (
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={() => openEditFlat(f)}>
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => openInstallments(f)}>
+            Installments
+          </Button>
+        </div>
+      ),
     },
   ];
 
@@ -682,20 +837,20 @@ export default function ProjectDetails() {
                   {
                     label: 'Mark Completed',
                     icon: AlertCircle,
-                    variant: 'outline',
+                    variant: 'outline' as const,
                     onClick: () => setCompleteDialogOpen(true),
                   },
                 ]),
             {
               label: 'Contracts',
               icon: FileText,
-              variant: 'outline',
+              variant: 'outline' as const,
               onClick: () => setActiveTab('contracts'),
             },
             {
               label: 'Project Docs',
               icon: ExternalLink,
-              variant: 'outline',
+              variant: 'outline' as const,
               onClick: () => {
                 const url = (project.project_docs_folder_url || '').trim();
                 if (!url) {
@@ -708,7 +863,7 @@ export default function ProjectDetails() {
             {
               label: 'Elevation',
               icon: Image,
-              variant: 'outline',
+              variant: 'outline' as const,
               onClick: () => {
                 const url = (project.elevation_image_url || '').trim();
                 if (!url) {
@@ -721,13 +876,13 @@ export default function ProjectDetails() {
             {
               label: 'Set Elevation',
               icon: Edit,
-              variant: 'outline',
+              variant: 'outline' as const,
               onClick: () => setElevationDialogOpen(true),
             },
             {
               label: 'Delete Project',
               icon: Trash2,
-              variant: 'destructive',
+              variant: 'destructive' as const,
               onClick: () => setDeleteDialogOpen(true),
             },
           ]}
@@ -1219,6 +1374,114 @@ export default function ProjectDetails() {
             <DataTable data={flats} columns={flatColumns} searchKeys={['flat_no', 'buyer_name']} onExport={() => toast({ title: 'Export', description: 'Downloading Excel...' })} />
           </TabsContent>
 
+          <Dialog
+            open={installmentsDialogOpen}
+            onOpenChange={(open) => {
+              setInstallmentsDialogOpen(open);
+              if (!open) {
+                setInstallmentsFlat(null);
+                setInstallments([]);
+                resetInstallmentForm();
+              }
+            }}
+          >
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Installments {installmentsFlat ? `• Flat ${installmentsFlat.flat_no}` : ''}</DialogTitle>
+                <DialogDescription>View, add, edit, or delete buyer installments.</DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-2">
+                <div className="bg-muted/30 rounded-md p-3">
+                  <div className="text-xs text-muted-foreground">Total Paid</div>
+                  <div className="font-semibold">
+                    {formatCurrency(installments.reduce((sum, i) => sum + toFiniteNumber(i.amount), 0))}
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-border rounded-md">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left border-b border-border">
+                        <th className="py-2 px-3">Date</th>
+                        <th className="py-2 px-3">Amount</th>
+                        <th className="py-2 px-3">Mode</th>
+                        <th className="py-2 px-3">Notes</th>
+                        <th className="py-2 px-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {installments.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-6 text-center text-muted-foreground">No installments yet.</td>
+                        </tr>
+                      ) : (
+                        installments.map((i) => (
+                          <tr key={i.id} className="border-b border-border/60">
+                            <td className="py-2 px-3">{new Date(i.date).toLocaleDateString('en-IN')}</td>
+                            <td className="py-2 px-3">{formatCurrency(i.amount)}</td>
+                            <td className="py-2 px-3">{String(i.mode || '').replace('_', ' ').toUpperCase()}</td>
+                            <td className="py-2 px-3">{i.notes || ''}</td>
+                            <td className="py-2 px-3 text-right">
+                              <Button variant="ghost" size="sm" onClick={() => openEditInstallment(i)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteInstallment(i)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Amount *</Label>
+                    <Input type="number" value={installmentForm.amount} onChange={(e) => setInstallmentForm({ ...installmentForm, amount: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date</Label>
+                    <Input type="date" value={installmentForm.date} onChange={(e) => setInstallmentForm({ ...installmentForm, date: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Mode</Label>
+                    <Select value={installmentForm.mode} onValueChange={(v) => setInstallmentForm({ ...installmentForm, mode: v as Installment['mode'] })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                        <SelectItem value="cheque">Cheque</SelectItem>
+                        <SelectItem value="upi">UPI</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Notes</Label>
+                    <Input value={installmentForm.notes} onChange={(e) => setInstallmentForm({ ...installmentForm, notes: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                {editingInstallment ? (
+                  <Button variant="outline" onClick={resetInstallmentForm} disabled={isSubmitting}>
+                    Cancel Edit
+                  </Button>
+                ) : null}
+                <Button onClick={handleSaveInstallment} disabled={isSubmitting || !installmentsFlat}>
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {editingInstallment ? 'Update Installment' : 'Add Installment'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <TabsContent value="reports" className="space-y-4">
             <h2 className="text-lg font-semibold">Download Reports</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1504,10 +1767,19 @@ export default function ProjectDetails() {
         </Dialog>
 
         {/* Flat Dialog */}
-        <Dialog open={flatDialog} onOpenChange={setFlatDialog}>
+        <Dialog
+          open={flatDialog}
+          onOpenChange={(open) => {
+            setFlatDialog(open);
+            if (!open) {
+              setEditingFlat(null);
+              setFlatForm({ flat_no: '', buyer_name: '', total_cost: '', status: 'available' });
+            }
+          }}
+        >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Flat</DialogTitle>
+              <DialogTitle>{editingFlat ? 'Edit Flat' : 'Add Flat'}</DialogTitle>
               <DialogDescription>
                 Add a new flat to this project. You can add installments later.
               </DialogDescription>
@@ -1545,7 +1817,7 @@ export default function ProjectDetails() {
               <Button variant="outline" onClick={() => setFlatDialog(false)}>Cancel</Button>
               <Button onClick={handleAddFlat} disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Add Flat
+                {editingFlat ? 'Update Flat' : 'Add Flat'}
               </Button>
             </DialogFooter>
           </DialogContent>
