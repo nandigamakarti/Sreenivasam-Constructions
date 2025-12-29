@@ -52,6 +52,16 @@ app.get('/api/debug/supabase', ...(process.env.NODE_ENV === 'production' ? [auth
       }
     })();
 
+    const countTable = async (table) => {
+      try {
+        const { count, error } = await supabaseAdmin.from(table).select('*', { count: 'exact', head: true });
+        if (error) return { ok: false, count: null, error: { message: error.message, code: error.code } };
+        return { ok: true, count: typeof count === 'number' ? count : null, error: null };
+      } catch (e) {
+        return { ok: false, count: null, error: { message: e instanceof Error ? e.message : 'Count failed' } };
+      }
+    };
+
     const probe = async (name, fn) => {
       try {
         const out = await fn();
@@ -93,6 +103,17 @@ app.get('/api/debug/supabase', ...(process.env.NODE_ENV === 'production' ? [auth
       settings: await probe('settings', () => supabaseAdmin.from('settings').select('key, value').limit(1)),
     };
 
+    const counts = {
+      projects: await countTable('projects'),
+      project_contractors: await countTable('project_contractors'),
+      partner_contributions: await countTable('partner_contributions'),
+      expenses: await countTable('expenses'),
+      flats: await countTable('flats'),
+      flat_payments: await countTable('flat_payments'),
+      transaction_audit_logs: await countTable('transaction_audit_logs'),
+      settings: await countTable('settings'),
+    };
+
     return res.json({
       supabase: {
         url_host: urlHost,
@@ -100,6 +121,7 @@ app.get('/api/debug/supabase', ...(process.env.NODE_ENV === 'production' ? [auth
         has_service_role_key: Boolean(config.supabaseServiceRoleKey),
       },
       probes,
+      counts,
     });
   } catch (err) {
     return res.status(500).json({ message: err instanceof Error ? err.message : 'Debug probe failed' });

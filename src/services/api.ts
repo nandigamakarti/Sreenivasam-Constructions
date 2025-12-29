@@ -1,7 +1,37 @@
 import { Project, Contribution, Expense, Flat, Installment, DashboardStats, ProjectSummary, ProjectContractor } from '@/types';
 import { supabase } from '@/lib/supabase';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+function resolveApiBase(): string {
+  const raw = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (!raw) return '';
+
+  const isLikelyProdHost =
+    typeof window !== 'undefined' &&
+    window.location &&
+    window.location.hostname &&
+    !['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+  const lower = raw.toLowerCase();
+  if (isLikelyProdHost && (lower.includes('localhost') || lower.includes('127.0.0.1'))) {
+    return '';
+  }
+
+  try {
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      // Validate URL
+      // eslint-disable-next-line no-new
+      new URL(raw);
+      return raw.replace(/\/$/, '');
+    }
+  } catch {
+    return '';
+  }
+
+  if (raw.startsWith('/')) return raw.replace(/\/$/, '');
+  return '';
+}
+
+const API_BASE = resolveApiBase();
 
 async function getAuthHeaders() {
   try {
