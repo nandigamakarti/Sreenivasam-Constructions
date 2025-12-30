@@ -60,13 +60,6 @@ export default function Dashboard() {
     );
   }
 
-  const quickActions = [
-    { label: 'Projects', icon: FolderKanban, path: '/projects' },
-    { label: 'Contributions', icon: HandCoins, path: '/contributions' },
-    { label: 'Expenses', icon: Receipt, path: '/expenses' },
-    { label: 'Flats', icon: Building2, path: '/flats' },
-  ];
-
   return (
     <Layout>
       <div className="space-y-8 animate-fade-in">
@@ -113,24 +106,6 @@ export default function Dashboard() {
             icon={Clock}
             iconClassName="bg-warning text-warning-foreground"
           />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-card rounded-xl border border-border p-6">
-          <h2 className="text-lg font-semibold text-card-foreground mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {quickActions.map((action) => (
-              <Button
-                key={action.path}
-                variant="outline"
-                className="h-auto py-6 flex flex-col gap-2 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all"
-                onClick={() => navigate(action.path)}
-              >
-                <action.icon className="h-6 w-6" />
-                <span className="font-medium">{action.label}</span>
-              </Button>
-            ))}
-          </div>
         </div>
 
         {/* Charts */}
