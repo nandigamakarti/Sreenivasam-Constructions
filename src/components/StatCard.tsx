@@ -8,14 +8,27 @@ interface StatCardProps {
   trend?: { value: number; positive: boolean };
   className?: string;
   iconClassName?: string;
+  onClick?: () => void;
 }
 
-export function StatCard({ title, value, icon: Icon, trend, className, iconClassName }: StatCardProps) {
+export function StatCard({ title, value, icon: Icon, trend, className, iconClassName, onClick }: StatCardProps) {
   return (
     <div className={cn(
       "bg-card rounded-xl border border-border p-6 shadow-sm hover:shadow-md transition-shadow duration-200",
+      onClick ? "cursor-pointer hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" : null,
       className
-    )}>
+    )}
+    role={onClick ? 'button' : undefined}
+    tabIndex={onClick ? 0 : undefined}
+    onClick={onClick}
+    onKeyDown={(e) => {
+      if (!onClick) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClick();
+      }
+    }}
+    >
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>

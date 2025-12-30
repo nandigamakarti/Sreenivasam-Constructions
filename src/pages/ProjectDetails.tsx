@@ -828,7 +828,31 @@ export default function ProjectDetails() {
       <div className="animate-fade-in">
         <PageHeader
           title={project.name}
-          subtitle={project.location}
+          subtitle={
+            <div className="flex flex-col gap-1">
+              <div>{project.location}</div>
+              {project.project_code ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Code:</span>
+                  <span className="font-mono text-foreground">{project.project_code}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(String(project.project_code));
+                        toast({ title: 'Copied', description: 'Project code copied.' });
+                      } catch {
+                        toast({ title: 'Copy failed', description: 'Could not copy project code.', variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          }
           backPath="/projects"
           actions={[
             ...(String(project.status || '').toLowerCase() === 'completed'

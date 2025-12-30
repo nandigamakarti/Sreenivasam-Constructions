@@ -3,6 +3,7 @@ export interface Project {
   name: string;
   location: string;
   status: 'planning' | 'ongoing' | 'completed';
+  project_code?: string | null;
   project_total_sqft?: number | null;
   project_docs_folder_url?: string | null;
   elevation_image_url?: string | null;

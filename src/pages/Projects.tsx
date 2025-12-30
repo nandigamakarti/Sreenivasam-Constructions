@@ -131,6 +131,7 @@ export default function Projects() {
   };
 
   const columns = [
+    { key: 'project_code' as const, header: 'Code' },
     { key: 'name' as const, header: 'Project Name' },
     { key: 'location' as const, header: 'Location' },
     { 
@@ -204,7 +205,7 @@ export default function Projects() {
         <DataTable
           data={projects}
           columns={columns}
-          searchKeys={['name', 'location']}
+          searchKeys={['project_code', 'name', 'location']}
           emptyMessage="No projects found. Create your first project!"
         />
 

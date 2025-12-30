@@ -862,15 +862,36 @@ async function fetchProject(projectId) {
   return data;
 }
 
+function generateProjectCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for (let i = 0; i < 8; i += 1) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return out;
+}
+
+async function generateUniqueProjectCode() {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const code = generateProjectCode();
+    const { count, error } = await supabaseAdmin
+      .from('projects')
+      .select('id', { count: 'exact', head: true })
+      .eq('project_code', code);
+    if (!error && Number(count || 0) === 0) return code;
+  }
+  return generateProjectCode();
+}
+
 app.post('/projects', authenticate, async (req, res) => {
   try {
     const { name, location, status, project_total_sqft, project_docs_folder_url, elevation_image_url } = req.body;
+    const project_code = await generateUniqueProjectCode();
     const { data, error } = await supabaseAdmin
       .from('projects')
       .insert({
         name,
         location,
         status,
+        project_code,
         project_total_sqft: project_total_sqft !== undefined && project_total_sqft !== null ? toNumber(project_total_sqft) : null,
         project_docs_folder_url: project_docs_folder_url || null,
         elevation_image_url: elevation_image_url || null,
@@ -889,12 +910,14 @@ app.post('/projects', authenticate, async (req, res) => {
 app.post('/api/projects', authenticate, async (req, res) => {
   try {
     const { name, location, status, project_total_sqft, project_docs_folder_url, elevation_image_url } = req.body;
+    const project_code = await generateUniqueProjectCode();
     const { data, error } = await supabaseAdmin
       .from('projects')
       .insert({
         name,
         location,
         status,
+        project_code,
         project_total_sqft: project_total_sqft !== undefined && project_total_sqft !== null ? toNumber(project_total_sqft) : null,
         project_docs_folder_url: project_docs_folder_url || null,
         elevation_image_url: elevation_image_url || null,
@@ -907,6 +930,19 @@ app.post('/api/projects', authenticate, async (req, res) => {
   } catch (err) {
     logger.error({ err }, 'Failed to create project');
     return res.status(500).json({ message: 'Failed to create project' });
+  }
+});
+
+app.get('/api/projects/by-code/:code', authenticate, async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim().toUpperCase();
+    if (!code) return res.status(400).json({ message: 'Missing project code' });
+    const { data, error } = await supabaseAdmin.from('projects').select('*').eq('project_code', code).single();
+    if (error || !data) return res.status(404).json({ message: 'Project not found' });
+    return res.json(data);
+  } catch (err) {
+    logger.error({ err }, 'Failed to resolve project by code');
+    return res.status(500).json({ message: 'Failed to resolve project by code' });
   }
 });
 

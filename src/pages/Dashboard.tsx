@@ -27,6 +27,8 @@ const formatCurrency = (amount: number) => {
 export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [projectLookup, setProjectLookup] = useState('');
+  const [isOpeningProject, setIsOpeningProject] = useState(false);
   const navigate = useNavigate();
 
   const pieColors = ['#2563eb', '#dc2626', '#16a34a', '#f59e0b', '#7c3aed', '#0ea5e9', '#db2777'];
@@ -60,6 +62,25 @@ export default function Dashboard() {
     );
   }
 
+  const openProject = async () => {
+    const raw = String(projectLookup || '').trim();
+    if (!raw) return;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+    setIsOpeningProject(true);
+    try {
+      if (isUuid) {
+        navigate(`/projects/${raw}`);
+        return;
+      }
+      const p = await api.getProjectByCode(raw);
+      navigate(`/projects/${p.id}`);
+    } catch (err) {
+      console.error('Failed to open project:', err);
+    } finally {
+      setIsOpeningProject(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-8 animate-fade-in">
@@ -69,12 +90,34 @@ export default function Dashboard() {
           <p className="text-muted-foreground mt-1">Overview of all construction projects</p>
         </div>
 
+        <div className="bg-card rounded-xl border border-border p-4 md:p-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+            <div className="text-sm font-medium text-muted-foreground">Open Project</div>
+            <div className="flex-1 flex flex-col sm:flex-row gap-2">
+              <input
+                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Enter Project Code or Project ID"
+                value={projectLookup}
+                onChange={(e) => setProjectLookup(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') openProject();
+                }}
+              />
+              <Button onClick={openProject} disabled={isOpeningProject || !projectLookup.trim()}>
+                {isOpeningProject ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Open
+              </Button>
+            </div>
+          </div>
+        </div>
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           <StatCard
             title="Total Projects"
             value={stats?.total_projects || 0}
             icon={FolderKanban}
+            onClick={() => navigate('/projects')}
           />
           <StatCard
             title="Total Contribution"

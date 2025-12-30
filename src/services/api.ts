@@ -162,6 +162,11 @@ export const api = {
     return apiFetch('/api/projects');
   },
 
+  async getProjectByCode(projectCode: string): Promise<Project> {
+    const code = String(projectCode || '').trim();
+    return apiFetch(`/api/projects/by-code/${encodeURIComponent(code)}`);
+  },
+
   async getProject(id: string): Promise<Project> {
     return apiFetch(`/api/projects/${id}`);
   },
