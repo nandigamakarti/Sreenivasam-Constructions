@@ -870,35 +870,65 @@ function generateProjectCode() {
 }
 
 async function generateUniqueProjectCode() {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  for (let i = 0; i < 20; i += 1) {
     const code = generateProjectCode();
+    // eslint-disable-next-line no-await-in-loop
     const { count, error } = await supabaseAdmin
       .from('projects')
       .select('id', { count: 'exact', head: true })
       .eq('project_code', code);
-    if (!error && Number(count || 0) === 0) return code;
+    if (!error && (count || 0) === 0) return code;
   }
   return generateProjectCode();
+}
+
+async function insertProjectWithOptionalCode({
+  name,
+  location,
+  status,
+  project_total_sqft,
+  project_docs_folder_url,
+  elevation_image_url,
+  created_by,
+}) {
+  const basePayload = {
+    name,
+    location,
+    status,
+    project_total_sqft: project_total_sqft !== undefined && project_total_sqft !== null ? toNumber(project_total_sqft) : null,
+    project_docs_folder_url: project_docs_folder_url || null,
+    elevation_image_url: elevation_image_url || null,
+    created_by: created_by || null,
+  };
+
+  const project_code = await generateUniqueProjectCode();
+  const firstAttempt = await supabaseAdmin
+    .from('projects')
+    .insert({ ...basePayload, project_code })
+    .select()
+    .single();
+  if (!firstAttempt.error) return firstAttempt;
+
+  const msg = String(firstAttempt.error.message || '').toLowerCase();
+  const missingProjectCodeColumn =
+    msg.includes('project_code') && (msg.includes('does not exist') || msg.includes('unknown') || msg.includes('schema cache'));
+  if (!missingProjectCodeColumn) return firstAttempt;
+
+  return supabaseAdmin.from('projects').insert(basePayload).select().single();
 }
 
 app.post('/projects', authenticate, async (req, res) => {
   try {
     const { name, location, status, project_total_sqft, project_docs_folder_url, elevation_image_url } = req.body;
-    const project_code = await generateUniqueProjectCode();
-    const { data, error } = await supabaseAdmin
-      .from('projects')
-      .insert({
-        name,
-        location,
-        status,
-        project_code,
-        project_total_sqft: project_total_sqft !== undefined && project_total_sqft !== null ? toNumber(project_total_sqft) : null,
-        project_docs_folder_url: project_docs_folder_url || null,
-        elevation_image_url: elevation_image_url || null,
-        created_by: req.user?.id || null,
-      })
-      .select()
-      .single();
+    const { data, error } = await insertProjectWithOptionalCode({
+      name,
+      location,
+      status,
+      project_total_sqft,
+      project_docs_folder_url,
+      elevation_image_url,
+      created_by: req.user?.id || null,
+    });
     if (error) return res.status(400).json({ message: error.message });
     return res.json(data);
   } catch (err) {
@@ -910,21 +940,15 @@ app.post('/projects', authenticate, async (req, res) => {
 app.post('/api/projects', authenticate, async (req, res) => {
   try {
     const { name, location, status, project_total_sqft, project_docs_folder_url, elevation_image_url } = req.body;
-    const project_code = await generateUniqueProjectCode();
-    const { data, error } = await supabaseAdmin
-      .from('projects')
-      .insert({
-        name,
-        location,
-        status,
-        project_code,
-        project_total_sqft: project_total_sqft !== undefined && project_total_sqft !== null ? toNumber(project_total_sqft) : null,
-        project_docs_folder_url: project_docs_folder_url || null,
-        elevation_image_url: elevation_image_url || null,
-        created_by: req.user?.id || null,
-      })
-      .select()
-      .single();
+    const { data, error } = await insertProjectWithOptionalCode({
+      name,
+      location,
+      status,
+      project_total_sqft,
+      project_docs_folder_url,
+      elevation_image_url,
+      created_by: req.user?.id || null,
+    });
     if (error) return res.status(400).json({ message: error.message });
     return res.json(data);
   } catch (err) {
