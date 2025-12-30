@@ -42,6 +42,17 @@ alter table if exists public.projects add column if not exists project_total_sqf
 alter table if exists public.projects add column if not exists project_docs_folder_url text;
 alter table if exists public.projects add column if not exists elevation_image_url text;
 
+-- Project Code (quick open)
+alter table if exists public.projects add column if not exists project_code text;
+
+-- Backfill codes for any existing rows (and for rows created before this migration)
+update public.projects
+set project_code = upper(substr(encode(gen_random_bytes(8), 'hex'), 1, 8))
+where project_code is null or trim(project_code) = '';
+
+-- Uniqueness constraint (case-insensitive via upper() convention in code)
+create unique index if not exists projects_project_code_unique on public.projects (project_code);
+
 alter table if exists public.partner_contributions
   add column if not exists contractor_id uuid references public.project_contractors (id) on delete set null;
 
