@@ -19,10 +19,14 @@ class EmailService {
         host: config.smtp.host,
         port: config.smtp.port,
         secure: config.smtp.secure,
+        requireTLS: !config.smtp.secure,
+        tls: {
+          servername: config.smtp.host,
+        },
         auth: { user: config.smtp.user, pass: config.smtp.pass },
-        connectionTimeout: 7000,
-        greetingTimeout: 7000,
-        socketTimeout: 7000,
+        connectionTimeout: 20000,
+        greetingTimeout: 20000,
+        socketTimeout: 20000,
       });
       logger.info(
         {
