@@ -274,6 +274,38 @@ app.delete('/api/projects/:projectId', authenticate, async (req, res) => {
     const existing = await fetchProject(projectId);
     if (!existing) return res.status(404).json({ message: 'Project not found' });
 
+    const force = String(req.query?.force || '').toLowerCase() === 'true';
+
+    if (force) {
+      const { data: flats = [], error: flatsErr } = await supabaseAdmin.from('flats').select('id').eq('project_id', projectId);
+      if (flatsErr) return res.status(400).json({ message: flatsErr.message });
+
+      const flatIds = (flats || []).map((f) => f.id).filter(Boolean);
+      if (flatIds.length) {
+        const { error: payErr } = await supabaseAdmin.from('flat_payments').delete().in('flat_id', flatIds);
+        if (payErr) return res.status(400).json({ message: payErr.message });
+      }
+
+      const { error: auditErr } = await supabaseAdmin.from('transaction_audit_logs').delete().eq('project_id', projectId);
+      if (auditErr) return res.status(400).json({ message: auditErr.message });
+
+      const { error: contribErr } = await supabaseAdmin.from('partner_contributions').delete().eq('project_id', projectId);
+      if (contribErr) return res.status(400).json({ message: contribErr.message });
+
+      const { error: expErr } = await supabaseAdmin.from('expenses').delete().eq('project_id', projectId);
+      if (expErr) return res.status(400).json({ message: expErr.message });
+
+      const { error: flatsDelErr } = await supabaseAdmin.from('flats').delete().eq('project_id', projectId);
+      if (flatsDelErr) return res.status(400).json({ message: flatsDelErr.message });
+
+      const { error: contractorsErr } = await supabaseAdmin.from('project_contractors').delete().eq('project_id', projectId);
+      if (contractorsErr) return res.status(400).json({ message: contractorsErr.message });
+
+      const { error: projErr } = await supabaseAdmin.from('projects').delete().eq('id', projectId);
+      if (projErr) return res.status(400).json({ message: projErr.message });
+      return res.json({ ok: true, forced: true });
+    }
+
     const countForProject = async (table) => {
       const { count, error } = await supabaseAdmin
         .from(table)

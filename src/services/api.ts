@@ -198,6 +198,12 @@ export const api = {
     });
   },
 
+  async forceDeleteProject(projectId: string): Promise<{ ok: boolean; forced?: boolean }> {
+    return apiFetch(`/api/projects/${projectId}?force=true`, {
+      method: 'DELETE',
+    });
+  },
+
   async getGlobalDocsFolderUrl(): Promise<{ global_docs_folder_url: string | null }> {
     return apiFetch('/api/settings/global-docs-folder');
   },

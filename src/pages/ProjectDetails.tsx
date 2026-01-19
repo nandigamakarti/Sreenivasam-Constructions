@@ -58,6 +58,7 @@ export default function ProjectDetails() {
   const [elevationUrl, setElevationUrl] = useState<string>('');
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [forceDeleteDialogOpen, setForceDeleteDialogOpen] = useState(false);
   
   // Dialog states
   const [contributionDialog, setContributionDialog] = useState(false);
@@ -971,7 +972,14 @@ export default function ProjectDetails() {
                     setDeleteDialogOpen(false);
                     navigate('/projects');
                   } catch (e) {
-                    toast({ title: 'Delete blocked', description: e instanceof Error ? e.message : 'Failed to delete project', variant: 'destructive' });
+                    const msg = e instanceof Error ? e.message : 'Failed to delete project';
+                    const blocked = msg.toLowerCase().includes('dependent') || msg.toLowerCase().includes('cannot be deleted') || msg.toLowerCase().includes('blocked');
+                    if (blocked) {
+                      setDeleteDialogOpen(false);
+                      setForceDeleteDialogOpen(true);
+                    } else {
+                      toast({ title: 'Error', description: msg, variant: 'destructive' });
+                    }
                   } finally {
                     setIsSubmitting(false);
                   }
@@ -980,6 +988,43 @@ export default function ProjectDetails() {
               >
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Delete Project
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={forceDeleteDialogOpen} onOpenChange={setForceDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete everything for this project?</DialogTitle>
+              <DialogDescription>
+                This will permanently delete the project and all related records (contributions, expenses, flats, payments, and contracts). This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setForceDeleteDialogOpen(false)} disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  if (!project) return;
+                  setIsSubmitting(true);
+                  try {
+                    await api.forceDeleteProject(project.id);
+                    toast({ title: 'Deleted', description: 'Project and all related records deleted.' });
+                    setForceDeleteDialogOpen(false);
+                    navigate('/projects');
+                  } catch (e) {
+                    toast({ title: 'Error', description: e instanceof Error ? e.message : 'Failed to force delete project', variant: 'destructive' });
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Yes, Delete Everything
               </Button>
             </DialogFooter>
           </DialogContent>

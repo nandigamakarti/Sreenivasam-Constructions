@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { LucideIcon, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type React from 'react';
 
 interface PageHeaderProps {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   backPath?: string;
   action?: {
     label: string;
