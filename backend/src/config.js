@@ -13,6 +13,7 @@ export const config = {
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   projectAppUrl: process.env.PROJECT_APP_URL || 'https://sreenivasam-construction-projects.example.com',
   emailFrom: process.env.EMAIL_FROM || 'Sreenivasam Construction Projects <no-reply@example.com>',
+  brevoApiKey: process.env.BREVO_API_KEY,
   sendgridApiKey: process.env.SENDGRID_API_KEY,
   smtp: {
     host: process.env.SMTP_HOST,

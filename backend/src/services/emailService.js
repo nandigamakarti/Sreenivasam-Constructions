@@ -7,9 +7,31 @@ import { logger } from '../logger.js';
 const formatCurrency = (value) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(value || 0));
 
+function parseEmailFrom(raw) {
+  const value = String(raw || '').trim();
+  const match = /^(.*)<\s*([^>]+)\s*>$/.exec(value);
+  if (match) {
+    const name = String(match[1] || '').trim().replace(/^"|"$/g, '');
+    const email = String(match[2] || '').trim();
+    return { name: name || undefined, email };
+  }
+  return { name: undefined, email: value };
+}
+
+function normalizeRecipients(to) {
+  const arr = Array.isArray(to) ? to : [to];
+  return arr
+    .map((x) => String(x || '').trim())
+    .filter(Boolean)
+    .map((email) => ({ email }));
+}
+
 class EmailService {
   constructor() {
-    if (config.sendgridApiKey) {
+    if (config.brevoApiKey) {
+      this.provider = 'brevo';
+      logger.info('Email provider: Brevo API');
+    } else if (config.sendgridApiKey) {
       sgMail.setApiKey(config.sendgridApiKey);
       this.provider = 'sendgrid';
       logger.info('Email provider: SendGrid');
@@ -162,6 +184,34 @@ class EmailService {
 
   async sendEmail({ to, subject, html }) {
     try {
+      if (this.provider === 'brevo') {
+        const sender = parseEmailFrom(config.emailFrom);
+        const payload = {
+          sender: {
+            email: sender.email,
+            ...(sender.name ? { name: sender.name } : {}),
+          },
+          to: normalizeRecipients(to),
+          subject,
+          htmlContent: html,
+        };
+
+        const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': String(config.brevoApiKey || ''),
+            'content-type': 'application/json',
+            accept: 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error(`Brevo API failed: HTTP ${res.status} ${text}`);
+        }
+        return { ok: true };
+      }
       if (this.provider === 'sendgrid') {
         await sgMail.send({ to, from: config.emailFrom, subject, html });
         return { ok: true };
