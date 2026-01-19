@@ -24,7 +24,25 @@ class EmailService {
         greetingTimeout: 7000,
         socketTimeout: 7000,
       });
-      logger.info('Email provider: SMTP');
+      logger.info(
+        {
+          smtp: {
+            host: config.smtp.host,
+            port: config.smtp.port,
+            secure: config.smtp.secure,
+            user_present: Boolean(config.smtp.user),
+            pass_present: Boolean(config.smtp.pass),
+          },
+          emailFrom: config.emailFrom,
+        },
+        'Email provider: SMTP',
+      );
+
+      // Verify connection (non-fatal) so Render logs show the actual problem.
+      Promise.resolve()
+        .then(() => this.transporter.verify())
+        .then(() => logger.info('SMTP verify: OK'))
+        .catch((err) => logger.error({ err }, 'SMTP verify failed (non-fatal)'));
     } else {
       this.provider = 'none';
       logger.warn('No email provider configured. Set SENDGRID_API_KEY or SMTP settings.');
@@ -156,7 +174,16 @@ class EmailService {
       logger.warn('Email provider not configured. Skipping send.');
       return { ok: false, skipped: true };
     } catch (err) {
-      logger.error({ err }, 'Email send failed (non-fatal)');
+      logger.error(
+        {
+          err,
+          provider: this.provider,
+          emailFrom: config.emailFrom,
+          to: Array.isArray(to) ? to : [to],
+          subject,
+        },
+        'Email send failed (non-fatal)',
+      );
       return { ok: false, error: err instanceof Error ? err.message : 'Email send failed' };
     }
   }
