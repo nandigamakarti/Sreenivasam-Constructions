@@ -124,12 +124,14 @@ export default function Dashboard() {
             value={formatCurrency(stats?.total_contribution || 0)}
             icon={HandCoins}
             iconClassName="bg-success text-success-foreground"
+            onClick={() => navigate('/contributions')}
           />
           <StatCard
             title="Total Expenses"
             value={formatCurrency(stats?.total_expenses || 0)}
             icon={Receipt}
             iconClassName="bg-destructive text-destructive-foreground"
+            onClick={() => navigate('/expenses')}
           />
           <StatCard
             title="Cash Balance"
@@ -142,12 +144,14 @@ export default function Dashboard() {
             value={formatCurrency(stats?.total_buyer_payments_received || 0)}
             icon={Building2}
             iconClassName="bg-accent text-accent-foreground"
+            onClick={() => navigate('/flats')}
           />
           <StatCard
             title="Buyer Pending Amount"
             value={formatCurrency(stats?.total_buyer_pending || 0)}
             icon={Clock}
             iconClassName="bg-warning text-warning-foreground"
+            onClick={() => navigate('/flats')}
           />
         </div>
 

@@ -1080,16 +1080,16 @@ export default function ProjectDetails() {
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard title="Total Contributions" value={formatCurrency(totalContributions)} icon={HandCoins} iconClassName="bg-success" />
-              <StatCard title="Total Expenses" value={formatCurrency(totalExpenses)} icon={Receipt} iconClassName="bg-destructive" />
+              <StatCard title="Total Contributions" value={formatCurrency(totalContributions)} icon={HandCoins} iconClassName="bg-success" onClick={() => setActiveTab('contributions')} />
+              <StatCard title="Total Expenses" value={formatCurrency(totalExpenses)} icon={Receipt} iconClassName="bg-destructive" onClick={() => setActiveTab('expenses')} />
               <StatCard title="Cash Balance" value={formatCurrency(cashBalance)} icon={Wallet} iconClassName="bg-primary" />
-              <StatCard title="Handler Due" value={formatCurrency(Number(project.handler_reimbursement_due || 0))} icon={AlertCircle} iconClassName="bg-warning" />
+              <StatCard title="Contracts" value={String(contractors?.length || 0)} icon={FileText} iconClassName="bg-muted" onClick={() => setActiveTab('contracts')} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <StatCard title="Total Buyer Receivables" value={formatCurrency(projectSummary?.total_buyer_receivables || 0)} icon={Building2} iconClassName="bg-accent" />
-              <StatCard title="Buyer Payments Received" value={formatCurrency(projectSummary?.buyer_payments_received || 0)} icon={Building2} iconClassName="bg-muted" />
-              <StatCard title="Buyer Pending Amount" value={formatCurrency(projectSummary?.buyer_pending || 0)} icon={AlertCircle} iconClassName="bg-warning" />
+              <StatCard title="Total Buyer Receivables" value={formatCurrency(projectSummary?.total_buyer_receivables || 0)} icon={Building2} iconClassName="bg-accent" onClick={() => setActiveTab('flats')} />
+              <StatCard title="Buyer Payments Received" value={formatCurrency(projectSummary?.buyer_payments_received || 0)} icon={Building2} iconClassName="bg-muted" onClick={() => setActiveTab('flats')} />
+              <StatCard title="Buyer Pending Amount" value={formatCurrency(projectSummary?.buyer_pending || 0)} icon={AlertCircle} iconClassName="bg-warning" onClick={() => setActiveTab('flats')} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

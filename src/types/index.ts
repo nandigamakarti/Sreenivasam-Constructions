@@ -10,7 +10,6 @@ export interface Project {
   created_at: string;
   total_contributions: number;
   total_expenses: number;
-  handler_reimbursement_due: number;
 }
 
 export interface Contribution {
