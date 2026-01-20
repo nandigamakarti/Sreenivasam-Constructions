@@ -62,28 +62,24 @@ export default function ProjectDetails() {
   const [forceDeleteDialogOpen, setForceDeleteDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const requested = String(searchParams.get('tab') || '').toLowerCase().trim();
-    const allowed = ['overview', 'contributions', 'expenses', 'flats', 'contracts', 'reports'];
-    if (requested && allowed.includes(requested) && requested !== activeTab) {
-      setActiveTab(requested);
-    }
-  }, [activeTab, searchParams]);
+  const tabParamRaw = String(searchParams.get('tab') || '').toLowerCase().trim();
+  const allowedTabs = ['overview', 'contributions', 'expenses', 'flats', 'contracts', 'reports'];
+  const tabParam = tabParamRaw && allowedTabs.includes(tabParamRaw) ? tabParamRaw : '';
 
   useEffect(() => {
+    if (tabParam && tabParam !== activeTab) setActiveTab(tabParam);
+    if (!tabParam && activeTab !== 'overview') setActiveTab('overview');
+  }, [activeTab, tabParam]);
+
+  useEffect(() => {
+    const desired = activeTab === 'overview' ? '' : activeTab;
+    if (desired === tabParam) return;
+
     const next = new URLSearchParams(searchParams);
-    if (!activeTab || activeTab === 'overview') {
-      next.delete('tab');
-    } else {
-      next.set('tab', activeTab);
-    }
-
-    const prevStr = searchParams.toString();
-    const nextStr = next.toString();
-    if (prevStr !== nextStr) {
-      setSearchParams(next, { replace: true });
-    }
-  }, [activeTab, searchParams, setSearchParams]);
+    if (!desired) next.delete('tab');
+    else next.set('tab', desired);
+    setSearchParams(next, { replace: true });
+  }, [activeTab, searchParams, setSearchParams, tabParam]);
 
   const [contributionDialog, setContributionDialog] = useState(false);
   const [expenseDialog, setExpenseDialog] = useState(false);
@@ -894,7 +890,6 @@ export default function ProjectDetails() {
               icon: FileText,
               variant: 'outline' as const,
               to: `/projects/${project.id}?tab=contracts`,
-              onClick: () => setActiveTab('contracts'),
             },
             {
               label: 'Project Docs',

@@ -15,7 +15,7 @@ interface PageHeaderProps {
   actions?: {
     label: string;
     icon?: LucideIcon;
-    onClick: () => void;
+    onClick?: () => void;
     variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'link';
     to?: string;
     href?: string;
