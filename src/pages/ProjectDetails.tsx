@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/StatCard';
@@ -35,6 +35,7 @@ const formatCurrency = (amount: unknown) => {
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [projectSummary, setProjectSummary] = useState<ProjectSummary | null>(null);
@@ -59,13 +60,35 @@ export default function ProjectDetails() {
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [forceDeleteDialogOpen, setForceDeleteDialogOpen] = useState(false);
-  
-  // Dialog states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const requested = String(searchParams.get('tab') || '').toLowerCase().trim();
+    const allowed = ['overview', 'contributions', 'expenses', 'flats', 'contracts', 'reports'];
+    if (requested && allowed.includes(requested) && requested !== activeTab) {
+      setActiveTab(requested);
+    }
+  }, [activeTab, searchParams]);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (!activeTab || activeTab === 'overview') {
+      next.delete('tab');
+    } else {
+      next.set('tab', activeTab);
+    }
+
+    const prevStr = searchParams.toString();
+    const nextStr = next.toString();
+    if (prevStr !== nextStr) {
+      setSearchParams(next, { replace: true });
+    }
+  }, [activeTab, searchParams, setSearchParams]);
+
   const [contributionDialog, setContributionDialog] = useState(false);
   const [expenseDialog, setExpenseDialog] = useState(false);
   const [flatDialog, setFlatDialog] = useState(false);
   const [contractorDialog, setContractorDialog] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingItem, setEditingItem] = useState<Contribution | Expense | null>(null);
   const [editingFlat, setEditingFlat] = useState<Flat | null>(null);
   const [editingContractor, setEditingContractor] = useState<ProjectContractor | null>(null);
@@ -870,32 +893,31 @@ export default function ProjectDetails() {
               label: 'Contracts',
               icon: FileText,
               variant: 'outline' as const,
+              to: `/projects/${project.id}?tab=contracts`,
               onClick: () => setActiveTab('contracts'),
             },
             {
               label: 'Project Docs',
               icon: ExternalLink,
               variant: 'outline' as const,
+              href: (project.project_docs_folder_url || '').trim() || undefined,
               onClick: () => {
                 const url = (project.project_docs_folder_url || '').trim();
                 if (!url) {
                   toast({ title: 'No link', description: 'No Project Docs folder URL set for this project.', variant: 'destructive' });
-                  return;
                 }
-                window.open(url, '_blank', 'noopener,noreferrer');
               },
             },
             {
               label: 'Elevation',
               icon: Image,
               variant: 'outline' as const,
+              href: (project.elevation_image_url || '').trim() || undefined,
               onClick: () => {
                 const url = (project.elevation_image_url || '').trim();
                 if (!url) {
                   toast({ title: 'No image', description: 'No elevation image URL set for this project.', variant: 'destructive' });
-                  return;
                 }
-                window.open(url, '_blank', 'noopener,noreferrer');
               },
             },
             {
@@ -1079,23 +1101,32 @@ export default function ProjectDetails() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard title="Total Contributions" value={formatCurrency(totalContributions)} icon={HandCoins} iconClassName="bg-success" onClick={() => setActiveTab('contributions')} />
-              <StatCard title="Total Expenses" value={formatCurrency(totalExpenses)} icon={Receipt} iconClassName="bg-destructive" onClick={() => setActiveTab('expenses')} />
-              <StatCard title="Cash Balance" value={formatCurrency(cashBalance)} icon={Wallet} iconClassName="bg-primary" />
-              <StatCard title="Contracts" value={String(contractors?.length || 0)} icon={FileText} iconClassName="bg-muted" onClick={() => setActiveTab('contracts')} />
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-foreground">Key Totals</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard title="Total Contributions" value={formatCurrency(totalContributions)} icon={HandCoins} iconClassName="bg-success" to={`/projects/${project.id}?tab=contributions`} />
+                <StatCard title="Total Expenses" value={formatCurrency(totalExpenses)} icon={Receipt} iconClassName="bg-destructive" to={`/projects/${project.id}?tab=expenses`} />
+                <StatCard title="Cash Balance" value={formatCurrency(cashBalance)} icon={Wallet} iconClassName="bg-primary" />
+                <StatCard title="Contracts" value={String(contractors?.length || 0)} icon={FileText} iconClassName="bg-muted" to={`/projects/${project.id}?tab=contracts`} />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <StatCard title="Total Buyer Receivables" value={formatCurrency(projectSummary?.total_buyer_receivables || 0)} icon={Building2} iconClassName="bg-accent" onClick={() => setActiveTab('flats')} />
-              <StatCard title="Buyer Payments Received" value={formatCurrency(projectSummary?.buyer_payments_received || 0)} icon={Building2} iconClassName="bg-muted" onClick={() => setActiveTab('flats')} />
-              <StatCard title="Buyer Pending Amount" value={formatCurrency(projectSummary?.buyer_pending || 0)} icon={AlertCircle} iconClassName="bg-warning" onClick={() => setActiveTab('flats')} />
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-foreground">Buyer Overview</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <StatCard title="Total Buyer Receivables" value={formatCurrency(projectSummary?.total_buyer_receivables || 0)} icon={Building2} iconClassName="bg-accent" to={`/projects/${project.id}?tab=flats`} />
+                <StatCard title="Buyer Payments Received" value={formatCurrency(projectSummary?.buyer_payments_received || 0)} icon={Building2} iconClassName="bg-muted" to={`/projects/${project.id}?tab=flats`} />
+                <StatCard title="Buyer Pending Amount" value={formatCurrency(projectSummary?.buyer_pending || 0)} icon={AlertCircle} iconClassName="bg-warning" to={`/projects/${project.id}?tab=flats`} />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard title="Total Account Credits" value={formatCurrency(totalAccountCredits)} icon={HandCoins} iconClassName="bg-success" />
-              <StatCard title="Total Direct Contributions" value={formatCurrency(totalDirectContributions)} icon={HandCoins} iconClassName="bg-muted" />
-              <StatCard title="Total Spent from Fund" value={formatCurrency(totalExpenses)} icon={Receipt} iconClassName="bg-destructive" />
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-foreground">Fund Breakdown</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <StatCard title="Total Account Credits" value={formatCurrency(totalAccountCredits)} icon={HandCoins} iconClassName="bg-success" to={`/projects/${project.id}?tab=contributions`} />
+                <StatCard title="Total Direct Contributions" value={formatCurrency(totalDirectContributions)} icon={HandCoins} iconClassName="bg-muted" to={`/projects/${project.id}?tab=contributions`} />
+                <StatCard title="Total Spent from Fund" value={formatCurrency(totalExpenses)} icon={Receipt} iconClassName="bg-destructive" to={`/projects/${project.id}?tab=expenses`} />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

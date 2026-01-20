@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { LucideIcon, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type React from 'react';
 
 interface PageHeaderProps {
@@ -17,6 +17,8 @@ interface PageHeaderProps {
     icon?: LucideIcon;
     onClick: () => void;
     variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'destructive' | 'link';
+    to?: string;
+    href?: string;
   }[];
 }
 
@@ -47,10 +49,26 @@ export function PageHeader({ title, subtitle, backPath, action, actions }: PageH
         {Array.isArray(actions) && actions.length > 0 ? (
           <div className="flex flex-col sm:flex-row gap-2 self-start sm:self-auto">
             {actions.map((a) => (
-              <Button key={a.label} onClick={a.onClick} variant={a.variant || 'default'}>
-                {a.icon && <a.icon className="h-4 w-4 mr-2" />}
-                {a.label}
-              </Button>
+              a.to ? (
+                <Button key={a.label} asChild variant={a.variant || 'default'}>
+                  <Link to={a.to}>
+                    {a.icon && <a.icon className="h-4 w-4 mr-2" />}
+                    {a.label}
+                  </Link>
+                </Button>
+              ) : a.href ? (
+                <Button key={a.label} asChild variant={a.variant || 'default'}>
+                  <a href={a.href} target="_blank" rel="noopener noreferrer">
+                    {a.icon && <a.icon className="h-4 w-4 mr-2" />}
+                    {a.label}
+                  </a>
+                </Button>
+              ) : (
+                <Button key={a.label} onClick={a.onClick} variant={a.variant || 'default'}>
+                  {a.icon && <a.icon className="h-4 w-4 mr-2" />}
+                  {a.label}
+                </Button>
+              )
             ))}
           </div>
         ) : action ? (
