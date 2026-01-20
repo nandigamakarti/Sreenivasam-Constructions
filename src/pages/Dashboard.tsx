@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { StatCard } from '@/components/StatCard';
 import { Button } from '@/components/ui/button';
@@ -90,10 +90,15 @@ export default function Dashboard() {
           <p className="text-muted-foreground mt-1">Overview of all construction projects</p>
         </div>
 
-        <div className="bg-card rounded-xl border border-border p-4 md:p-6">
-          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-            <div className="text-sm font-medium text-muted-foreground">Open Project</div>
-            <div className="flex-1 flex flex-col sm:flex-row gap-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+          <div className="bg-card rounded-xl border border-border p-4 md:p-6 lg:col-span-2">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-foreground">Quick Open</div>
+                <div className="text-xs text-muted-foreground">Jump to a project using Code / ID</div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
               <input
                 className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 placeholder="Enter Project Code or Project ID"
@@ -103,56 +108,41 @@ export default function Dashboard() {
                   if (e.key === 'Enter') openProject();
                 }}
               />
-              <Button onClick={openProject} disabled={isOpeningProject || !projectLookup.trim()}>
+              <Button onClick={openProject} disabled={isOpeningProject || !projectLookup.trim()} className="sm:w-32">
                 {isOpeningProject ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Open
               </Button>
             </div>
           </div>
+
+          <div className="bg-card rounded-xl border border-border p-4 md:p-6">
+            <div className="text-sm font-medium text-foreground">Navigate</div>
+            <div className="text-xs text-muted-foreground">Open key sections</div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button asChild variant="outline"><Link to="/projects">Projects</Link></Button>
+              <Button asChild variant="outline"><Link to="/contributions">Contributions</Link></Button>
+              <Button asChild variant="outline"><Link to="/expenses">Expenses</Link></Button>
+              <Button asChild variant="outline"><Link to="/flats">Flats</Link></Button>
+            </div>
+          </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          <StatCard
-            title="Total Projects"
-            value={stats?.total_projects || 0}
-            icon={FolderKanban}
-            onClick={() => navigate('/projects')}
-          />
-          <StatCard
-            title="Total Contribution"
-            value={formatCurrency(stats?.total_contribution || 0)}
-            icon={HandCoins}
-            iconClassName="bg-success text-success-foreground"
-            onClick={() => navigate('/contributions')}
-          />
-          <StatCard
-            title="Total Expenses"
-            value={formatCurrency(stats?.total_expenses || 0)}
-            icon={Receipt}
-            iconClassName="bg-destructive text-destructive-foreground"
-            onClick={() => navigate('/expenses')}
-          />
-          <StatCard
-            title="Cash Balance"
-            value={formatCurrency(stats?.cash_balance || 0)}
-            icon={Wallet}
-            iconClassName="bg-primary text-primary-foreground"
-          />
-          <StatCard
-            title="Buyer Payments Received"
-            value={formatCurrency(stats?.total_buyer_payments_received || 0)}
-            icon={Building2}
-            iconClassName="bg-accent text-accent-foreground"
-            onClick={() => navigate('/flats')}
-          />
-          <StatCard
-            title="Buyer Pending Amount"
-            value={formatCurrency(stats?.total_buyer_pending || 0)}
-            icon={Clock}
-            iconClassName="bg-warning text-warning-foreground"
-            onClick={() => navigate('/flats')}
-          />
+        <div className="space-y-3">
+          <div className="text-sm font-semibold text-foreground">Key Totals</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <StatCard title="Total Projects" value={stats?.total_projects || 0} icon={FolderKanban} to="/projects" />
+            <StatCard title="Total Contributions" value={formatCurrency(stats?.total_contribution || 0)} icon={HandCoins} iconClassName="bg-success text-success-foreground" to="/contributions" />
+            <StatCard title="Total Expenses" value={formatCurrency(stats?.total_expenses || 0)} icon={Receipt} iconClassName="bg-destructive text-destructive-foreground" to="/expenses" />
+            <StatCard title="Cash Balance" value={formatCurrency(stats?.cash_balance || 0)} icon={Wallet} iconClassName="bg-primary text-primary-foreground" />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="text-sm font-semibold text-foreground">Buyer Overview</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            <StatCard title="Buyer Payments Received" value={formatCurrency(stats?.total_buyer_payments_received || 0)} icon={Building2} iconClassName="bg-accent text-accent-foreground" to="/flats" />
+            <StatCard title="Buyer Pending Amount" value={formatCurrency(stats?.total_buyer_pending || 0)} icon={Clock} iconClassName="bg-warning text-warning-foreground" to="/flats" />
+          </div>
         </div>
 
         {/* Charts */}
