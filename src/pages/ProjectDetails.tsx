@@ -1096,7 +1096,6 @@ export default function ProjectDetails() {
               <StatCard title="Total Account Credits" value={formatCurrency(totalAccountCredits)} icon={HandCoins} iconClassName="bg-success" />
               <StatCard title="Total Direct Contributions" value={formatCurrency(totalDirectContributions)} icon={HandCoins} iconClassName="bg-muted" />
               <StatCard title="Total Spent from Fund" value={formatCurrency(totalExpenses)} icon={Receipt} iconClassName="bg-destructive" />
-              <StatCard title="Total Contribution" value={formatCurrency(totalContributions)} icon={Wallet} iconClassName="bg-primary" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
