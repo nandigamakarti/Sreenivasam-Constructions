@@ -1525,7 +1525,6 @@ export default function ProjectDetails() {
                       <SelectContent>
                         <SelectItem value="cash">Cash</SelectItem>
                         <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                        <SelectItem value="cheque">Cheque</SelectItem>
                         <SelectItem value="upi">UPI</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1700,7 +1699,6 @@ export default function ProjectDetails() {
                     <SelectContent>
                       <SelectItem value="cash">Cash</SelectItem>
                       <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                      <SelectItem value="cheque">Cheque</SelectItem>
                       <SelectItem value="upi">UPI</SelectItem>
                     </SelectContent>
                   </Select>

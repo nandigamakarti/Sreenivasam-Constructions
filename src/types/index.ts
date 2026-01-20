@@ -20,7 +20,7 @@ export interface Contribution {
   partner_email?: string;
   amount: number;
   contribution_type: 'account_credit' | 'direct_expense';
-  mode: 'cash' | 'bank_transfer' | 'cheque' | 'upi';
+  mode: 'cash' | 'bank_transfer' | 'upi';
   date: string;
   notes?: string;
   vendor_name?: string | null;
@@ -71,7 +71,7 @@ export interface Installment {
   flat_id: string;
   amount: number;
   date: string;
-  mode: 'cash' | 'bank_transfer' | 'cheque' | 'upi';
+  mode: 'cash' | 'bank_transfer' | 'upi';
   notes?: string;
 }
 
